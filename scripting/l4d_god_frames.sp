@@ -1,6 +1,6 @@
 /*
 *	God Frames Patch
-*	Copyright (C) 2022 Silvers
+*	Copyright (C) 2023 Silvers
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.6"
+#define PLUGIN_VERSION 		"1.7"
 
 /*======================================================================================
 	Plugin Info:
@@ -31,6 +31,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.7 (26-Oct-2023)
+	- Fixed errors if the "m_zombieClass" is out of range. Thanks to "chungocanh12" for reporting.
 
 1.6 (29-Apr-2022)
 	- Added cvar "l4d_god_frames_incapacitated" to control damage on Incapacitated players. Requested by "ZBzibing".
@@ -258,7 +261,7 @@ public void OnConfigsExecuted()
 	IsAllowed();
 }
 
-public void ConVarChanged_Cvars(Handle convar, const char[] oldValue, const char[] newValue)
+void ConVarChanged_Cvars(Handle convar, const char[] oldValue, const char[] newValue)
 {
 	GetCvars();
 }
@@ -275,7 +278,7 @@ void GetCvars()
 	g_bCvarIncap = g_hCvarIncap.BoolValue;
 }
 
-public void ConVarChanged_Allow(Handle convar, const char[] oldValue, const char[] newValue)
+void ConVarChanged_Allow(Handle convar, const char[] oldValue, const char[] newValue)
 {
 	IsAllowed();
 }
@@ -386,7 +389,7 @@ bool IsAllowedGameMode()
 	return true;
 }
 
-public void OnGamemode(const char[] output, int caller, int activator, float delay)
+void OnGamemode(const char[] output, int caller, int activator, float delay)
 {
 	if( strcmp(output, "OnCoop") == 0 )
 		g_iCurrentMode = 1;
@@ -403,12 +406,12 @@ public void OnGamemode(const char[] output, int caller, int activator, float del
 // ====================================================================================================
 //					EVENTS
 // ====================================================================================================
-public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
+void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	ResetPlugin();
 }
 
-public void Event_Revive(Event event, const char[] name, bool dontBroadcast)
+void Event_Revive(Event event, const char[] name, bool dontBroadcast)
 {
 	if( event.GetInt("ledge_hang") == 1 ) return;
 
@@ -428,7 +431,7 @@ public void OnClientPutInServer(int client)
 	SDKHook(client, SDKHook_OnTakeDamageAlive, OnTakeDamage);
 }
 
-public Action OnTakeDamagePre(int client, int &attacker, int &inflictor, float &damage, int &damagetype)
+Action OnTakeDamagePre(int client, int &attacker, int &inflictor, float &damage, int &damagetype)
 {
 	if( GetGameTime() < g_fIncapacitated[client] )
 	{
@@ -455,7 +458,7 @@ public Action OnTakeDamagePre(int client, int &attacker, int &inflictor, float &
 	return Plugin_Continue;
 }
 
-public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &damage, int &damagetype)
+Action OnTakeDamage(int client, int &attacker, int &inflictor, float &damage, int &damagetype)
 {
 	if( g_bInvulnerable[client] )
 	{
@@ -507,6 +510,7 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 				// Special Infected
 				int index = GetEntProp(attacker, Prop_Send, "m_zombieClass") + 5;
 				if( index == g_iClassTank ) index = 5; // Tank zombieClass == 8 (L4D2) or 5 (L4D1), and 5 in our indexing.
+				if( index >= MAX_CVARS ) return Plugin_Continue;
 
 				if( IsClientInvul(client, index) ) // Time delay between god frame damage.
 				{
@@ -624,13 +628,13 @@ void DetourAddress(bool patch)
 	}
 }
 
-public MRESReturn IsInvulnerablePre()
+MRESReturn IsInvulnerablePre()
 {
 	// Unused but pre hook required to prevent crashing.
 	return MRES_Ignored;
 }
 
-public MRESReturn IsInvulnerablePost(int pThis, Handle hReturn)
+MRESReturn IsInvulnerablePost(int pThis, Handle hReturn)
 {
 	bool invul = DHookGetReturn(hReturn);
 	g_bInvulnerable[pThis] = invul;
